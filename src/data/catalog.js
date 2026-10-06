@@ -1,4 +1,3 @@
-
 // Münzkatalog. Richtwerte sind grobe Schätzungen für Umlaufzustand
 // und können in der App für jede Münze angepasst werden.
 // Fehlende Gedenkmünzen lassen sich in der App selbst hinzufügen.
