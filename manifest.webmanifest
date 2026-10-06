@@ -1,0 +1,9 @@
+{
+  "name": "2-Euro-Album",
+  "short_name": "2€ Album",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1E2B47",
+  "theme_color": "#1E2B47",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
