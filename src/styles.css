@@ -157,3 +157,4 @@ button { cursor: pointer; }
 .crop-frame { width: min(240px, 70vw); aspect-ratio: 1; border-radius: 50%; overflow: hidden; justify-self: center; box-shadow: 0 0 0 3px var(--nickel); background: var(--album-deep); }
 .crop-frame img { width: 100%; height: 100%; object-fit: cover; display: block; transform-origin: center; }
 .field input[type="range"] { padding: 0; accent-color: var(--brass); border: 0; background: none; }
+.primary:disabled { opacity: 0.6; cursor: wait; }

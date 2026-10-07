@@ -1,9 +1,37 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { CATALOG, COUNTRIES, TYPE_LABEL, flag } from './data/catalog.js'
+import { CATALOG, CATALOG_STAND, COUNTRIES, TYPE_LABEL, flag } from './data/catalog.js'
 import { loadPhotos, savePhoto, deletePhoto, clearPhotos, processImage } from './photos.js'
 
 const STORE_KEY = 'zwei-euro-album-v1'
+const CATALOG_KEY = 'zwei-euro-katalog-v1'
 const EMPTY = { owned: {}, values: {}, notes: {}, custom: [] }
+
+// Zusätzlich geladener Katalog (Online-Update oder Katalogdatei). Ergänzt den eingebauten Katalog.
+function loadExtraCatalog() {
+  try {
+    const raw = localStorage.getItem(CATALOG_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch (e) { /* kein Zusatzkatalog */ }
+  return { stand: null, coins: [] }
+}
+
+const validCoin = (c) =>
+  c && typeof c.id === 'string' && COUNTRIES[c.country] && typeof c.motif === 'string' &&
+  (c.type === 'national' || c.type === 'gedenk') && Number.isFinite(Number(c.sortYear))
+
+function normalizeCatalog(json) {
+  const list = Array.isArray(json) ? json : json?.coins
+  if (!Array.isArray(list)) throw new Error('kein Katalog')
+  const coins = list.filter(validCoin).map((c) => ({
+    id: c.id, country: c.country, type: c.type, motif: c.motif,
+    year: String(c.year ?? c.sortYear), sortYear: Number(c.sortYear),
+    value: Number(c.value) || 2, joint: !!c.joint,
+  }))
+  if (!coins.length) throw new Error('leer')
+  return { stand: typeof json?.stand === 'string' ? json.stand : null, coins }
+}
+
+const fmtDate = (iso) => (iso ? new Date(iso).toLocaleDateString('de-DE') : '–')
 
 function loadState() {
   try {
@@ -34,6 +62,7 @@ export default function App() {
   const [tab, setTab] = useState('album')
   const [openId, setOpenId] = useState(null)
   const [photos, setPhotos] = useState({})
+  const [extra, setExtra] = useState(loadExtraCatalog)
 
   useEffect(() => { loadPhotos().then(setPhotos).catch(() => {}) }, [])
 
@@ -51,7 +80,25 @@ export default function App() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(data)) } catch (e) { /* Speicher voll oder gesperrt */ }
   }, [data])
 
-  const coins = useMemo(() => [...CATALOG, ...data.custom], [data.custom])
+  const coins = useMemo(() => {
+    const byId = new Map(CATALOG.map((c) => [c.id, c]))
+    for (const c of extra.coins) byId.set(c.id, { ...byId.get(c.id), ...c })
+    return [...byId.values(), ...data.custom]
+  }, [extra, data.custom])
+
+  const catalogStand = [CATALOG_STAND, extra.stand].filter(Boolean).sort().pop()
+
+  // Neuen Katalog übernehmen: nur ergänzen, nie Sammlungsdaten verändern
+  const applyCatalog = (incoming) => {
+    const known = new Set(coins.map((c) => c.id))
+    const added = incoming.coins.filter((c) => !known.has(c.id))
+    const byId = new Map(extra.coins.map((c) => [c.id, c]))
+    for (const c of incoming.coins) byId.set(c.id, c)
+    const next = { stand: [extra.stand, incoming.stand].filter(Boolean).sort().pop() || null, coins: [...byId.values()] }
+    try { localStorage.setItem(CATALOG_KEY, JSON.stringify(next)) } catch (e) { /* Speicher voll */ }
+    setExtra(next)
+    return added
+  }
   const countOf = (c) => data.owned[c.id] || 0
   const valueOf = (c) => data.values[c.id] ?? c.value
 
@@ -102,7 +149,7 @@ export default function App() {
           <Stats coins={coins} countOf={countOf} valueOf={valueOf}
             unique={unique} total={total} value={value} onOpen={setOpenId} />
         )}
-        {tab === 'more' && <More data={data} setData={setData} photos={photos} replaceAllPhotos={replaceAllPhotos} onAdd={addCustom} goAlbum={() => setTab('album')} />}
+        {tab === 'more' && <More data={data} setData={setData} photos={photos} replaceAllPhotos={replaceAllPhotos} onAdd={addCustom} goAlbum={() => setTab('album')} catalogCount={coins.length - data.custom.length} catalogStand={catalogStand} applyCatalog={applyCatalog} />}
       </main>
 
       <nav className="tabs" aria-label="Bereiche">
@@ -425,7 +472,40 @@ function Stats({ coins, countOf, valueOf, unique, total, value, onOpen }) {
   )
 }
 
-function More({ data, setData, photos, replaceAllPhotos, onAdd, goAlbum }) {
+function More({ data, setData, photos, replaceAllPhotos, onAdd, goAlbum, catalogCount, catalogStand, applyCatalog }) {
+  const [busy, setBusy] = useState(false)
+  const catFileRef = useRef(null)
+
+  const report = (added) => {
+    if (!added.length) { setMsg('Der Katalog ist aktuell. Es wurden keine neuen Münzen gefunden.'); return }
+    const names = added.slice(0, 3).map((c) => `${flag(c.country)} ${c.motif}`).join(', ')
+    setMsg(`${added.length} neue ${added.length === 1 ? 'Münze' : 'Münzen'} hinzugefügt: ${names}${added.length > 3 ? ' …' : ''}. Deine Sammlung ist unverändert.`)
+  }
+
+  const updateOnline = async () => {
+    setBusy(true)
+    try {
+      const res = await fetch(`/catalog.json?t=${Date.now()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error()
+      report(applyCatalog(normalizeCatalog(await res.json())))
+    } catch {
+      setMsg('Der Katalog konnte nicht geladen werden. Prüfe die Internetverbindung und versuche es erneut.')
+    }
+    setBusy(false)
+  }
+
+  const loadCatalogFile = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try { report(applyCatalog(normalizeCatalog(JSON.parse(reader.result)))) }
+      catch { setMsg('Diese Datei ist keine gültige Katalogdatei.') }
+    }
+    reader.readAsText(file)
+  }
+
   const [form, setForm] = useState({ country: 'DE', type: 'gedenk', year: String(new Date().getFullYear()), motif: '', value: '2' })
   const [msg, setMsg] = useState('')
   const fileRef = useRef(null)
@@ -479,6 +559,14 @@ function More({ data, setData, photos, replaceAllPhotos, onAdd, goAlbum }) {
   return (
     <section className="more">
       {msg && <p className="msg" role="status">{msg}</p>}
+
+      <h2>Katalog</h2>
+      <p className="hint">Stand {fmtDate(catalogStand)}, {catalogCount} Münzen. Beim Aktualisieren kommen nur neue Münzen dazu. Deine abgehakten Münzen, Fotos, Werte und Notizen bleiben immer erhalten.</p>
+      <div className="stack">
+        <button className="primary" onClick={updateOnline} disabled={busy}>{busy ? 'Katalog wird geladen …' : 'Katalog aktualisieren'}</button>
+        <button className="ghost" onClick={() => catFileRef.current?.click()}>Katalogdatei laden</button>
+        <input ref={catFileRef} type="file" accept="application/json,.json" hidden onChange={loadCatalogFile} />
+      </div>
 
       <h2>Münze hinzufügen</h2>
       <p className="hint">Für Gedenkmünzen, die noch nicht im Katalog stehen.</p>
