@@ -161,3 +161,73 @@ button { cursor: pointer; }
 .crop-frame { touch-action: none; cursor: grab; user-select: none; -webkit-user-select: none; }
 .crop-frame:active { cursor: grabbing; }
 .crop-frame img { pointer-events: none; }
+
+/* Version 2: neue Bedienelemente */
+.filter-row { display: flex; gap: 8px; }
+.filter-row input { flex: 1; min-width: 0; }
+.recog-btn { flex: none; padding: 0 14px; white-space: nowrap; }
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--album-deep); border: 1px solid var(--album-line); border-radius: 10px; padding: 3px; gap: 3px; }
+.segmented button { border: 0; background: none; padding: 8px 10px; border-radius: 7px; color: var(--muted); font-weight: 600; }
+.segmented button.is-active { background: var(--album-line); color: var(--ink); }
+.chips--wrap { flex-wrap: wrap; overflow: visible; }
+
+.badge--wish { right: auto; left: -6px; top: -4px; background: #E58A9B; color: #fff; }
+.badge--rare { right: -6px; top: auto; bottom: -2px; background: var(--brass); color: #2B220B; }
+.slot-mints { font-size: 0.7rem; color: var(--brass-light); }
+
+.sheet-rare { margin: 4px 0 0; color: var(--brass-light); font-size: 0.85rem; }
+.field-label { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.mints { display: grid; gap: 8px; }
+.mints .stepper { grid-template-columns: 44px 1fr 44px; }
+.mints .stepper button { height: 44px; }
+.stepper button:disabled { opacity: 0.35; cursor: default; }
+.wish-toggle { padding: 12px; border-radius: 12px; border: 1px solid var(--album-line); background: transparent; font-weight: 600; }
+.wish-toggle.is-active { border-color: #E58A9B; color: #F3B3BF; }
+.price-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.price-links a { color: var(--ink); text-decoration: none; padding: 8px 12px; border: 1px solid var(--album-line); border-radius: 999px; font-size: 0.9rem; }
+.msg p { margin: 0 0 10px; }
+
+.switch { display: flex; gap: 12px; align-items: flex-start; padding: 6px 0 10px; }
+.switch input, .check input { width: 22px; height: 22px; accent-color: var(--brass); flex: none; margin: 1px 0 0; }
+.check { display: flex; gap: 8px; align-items: center; }
+.share-fallback { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid var(--album-line); background: var(--album-deep); font-size: 0.85rem; }
+
+.recog-list { display: grid; gap: 8px; }
+.recog-item { display: flex; gap: 14px; align-items: center; padding: 10px; border-radius: 12px; border: 1px solid var(--album-line); background: var(--album-deep); text-align: left; }
+.recog-item span:last-child { display: grid; gap: 2px; }
+.recog-item small { color: var(--muted); }
+.sheet h2#recog-title { margin: 0; }
+
+@media (min-width: 640px) {
+  .figures { grid-template-columns: repeat(3, 1fr); }
+  .filters { grid-template-columns: 1fr 200px; }
+  .filter-row { grid-column: 1; }
+  .segmented, .chips { grid-column: 1 / -1; }
+}
+
+/* Druckansicht */
+.print-view { max-width: 900px; margin: 0 auto; padding: 16px; }
+.print-controls { display: grid; gap: 10px; margin-bottom: 20px; }
+.print-head h1 { margin: 0 0 4px; font-size: 1.8rem; }
+.print-head p { margin: 0 0 16px; color: var(--muted); }
+.print-country { margin-bottom: 18px; break-inside: auto; }
+.print-country h2 { font-size: 1.15rem; margin: 0 0 6px; }
+.print-view table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.print-view th, .print-view td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--album-line); vertical-align: middle; }
+.print-view th { color: var(--muted); font-weight: 600; }
+.print-view .num { text-align: right; white-space: nowrap; }
+.print-view .col-photo { width: 44px; }
+.print-view .col-photo img { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; display: block; }
+.print-view tr.is-missing td { color: var(--muted); }
+.print-view .table-wrap { overflow-x: auto; }
+
+@media print {
+  :root { padding: 0; color-scheme: light; }
+  html, body { background: #fff; color: #111; }
+  .no-print { display: none !important; }
+  .print-view { max-width: none; padding: 0; }
+  .print-head p, .print-view th, .print-view tr.is-missing td { color: #555; }
+  .print-view th, .print-view td { border-bottom: 1px solid #ccc; }
+  .print-view tr { break-inside: avoid; }
+  .print-country h2 { break-after: avoid; }
+}
