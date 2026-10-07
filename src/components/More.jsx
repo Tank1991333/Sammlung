@@ -6,7 +6,7 @@ import { signIn, signOut } from '../lib/sync.js'
 
 export default function More({
   data, update, replaceData, photos, replaceAllPhotos, onAdd, goAlbum,
-  coins, countOf, catalogCount, catalogStand, applyCatalog, onPrint, sync, recognitionOk,
+  coins, countOf, catalogCount, catalogStand, applyCatalog, onPrint, sync, recognitionOk, theme,
 }) {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
@@ -147,6 +147,15 @@ export default function More({
       <h2>Album als PDF</h2>
       <p className="hint">Druckbare Übersicht deiner Sammlung, zum Beispiel für die Versicherung oder als Checkliste für die Münzbörse.</p>
       <button className="ghost" onClick={onPrint}>Druckansicht öffnen</button>
+
+      <h2>Ansicht</h2>
+      <div className="segmented" role="group" aria-label="Hell oder dunkel">
+        {[['auto', 'Automatisch'], ['hell', 'Hell'], ['dunkel', 'Dunkel']].map(([key, label]) => (
+          <button key={key} className={theme.pref === key ? 'is-active' : ''} aria-pressed={theme.pref === key}
+            onClick={() => theme.setPref(key)}>{label}</button>
+        ))}
+      </div>
+      <p className="hint">„Automatisch“ folgt der Einstellung deines Handys. Mit dem Knopf oben rechts schaltest du jederzeit schnell um.</p>
 
       <h2>Sammeleinstellungen</h2>
       <label className="switch">

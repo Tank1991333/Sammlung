@@ -6,6 +6,7 @@ import {
   ownedCount, stripId, fmt,
 } from './lib/store.js'
 import { useSync } from './lib/useSync.js'
+import { useTheme } from './lib/theme.js'
 import Album from './components/Album.jsx'
 import CoinSheet from './components/CoinSheet.jsx'
 import Stats from './components/Stats.jsx'
@@ -22,6 +23,7 @@ export default function App() {
   const [suggested, setSuggested] = useState(null) // Foto aus der Erkennung
   const [printing, setPrinting] = useState(false)
   const recognitionOk = useRecognitionAvailable()
+  const theme = useTheme()
 
   useEffect(() => { loadPhotos().then(setPhotos).catch(() => {}) }, [])
   useEffect(() => { saveData(data) }, [data])
@@ -112,6 +114,10 @@ export default function App() {
     <div className="app">
       <header className="top">
         <h1>2-Euro-Album</h1>
+        <button className="theme-btn" onClick={theme.toggle}
+          aria-label={theme.effective === 'hell' ? 'Dunkle Ansicht einschalten' : 'Helle Ansicht einschalten'}>
+          {theme.effective === 'hell' ? '☾' : '☀'}
+        </button>
         <div className="top-stats">
           <p><strong>{unique}</strong> von {coins.length} Münzen</p>
           <p>Wert ca. <strong>{fmt(value)}</strong></p>
@@ -131,7 +137,7 @@ export default function App() {
           <More data={data} update={update} replaceData={setData} photos={photos} replaceAllPhotos={replaceAllPhotos}
             onAdd={addCustom} goAlbum={() => setTab('album')} coins={coins} countOf={countOf}
             catalogCount={coins.length - data.custom.length} catalogStand={catalogStand} applyCatalog={applyCatalog}
-            onPrint={() => { setPrinting(true); window.scrollTo(0, 0) }} sync={sync} recognitionOk={recognitionOk} />
+            onPrint={() => { setPrinting(true); window.scrollTo(0, 0) }} sync={sync} recognitionOk={recognitionOk} theme={theme} />
         )}
       </main>
 

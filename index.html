@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#1E2B47" />
+    <script>
+      try {
+        var p = localStorage.getItem('zwei-euro-theme') || 'auto'
+        var dark = p === 'auto' ? !window.matchMedia || matchMedia('(prefers-color-scheme: dark)').matches : p === 'dunkel'
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      } catch (e) {}
+    </script>
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="2€ Album" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
