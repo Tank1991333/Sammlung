@@ -15,4 +15,4 @@ npm run dev
 ```
 
 ## Katalog erweitern
-Münzen stehen in `src/data/catalog.js`. Fehlende Gedenkmünzen kann man auch direkt in der App unter „Mehr“ hinzufügen.
+Münzen stehen in `src/data/catalog.js`. Beim Build wird daraus automatisch `public/catalog.json` erzeugt, die die App über „Katalog aktualisieren“ lädt. Eine Katalogdatei kann auch direkt in der App unter „Mehr“ geladen werden.
