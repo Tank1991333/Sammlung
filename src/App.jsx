@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CATALOG, COUNTRIES, TYPE_LABEL, flag } from './data/catalog.js'
+import { loadPhotos, savePhoto, deletePhoto, clearPhotos, processImage } from './photos.js'
 
 const STORE_KEY = 'zwei-euro-album-v1'
 const EMPTY = { owned: {}, values: {}, notes: {}, custom: [] }
@@ -32,6 +33,19 @@ export default function App() {
   const [data, setData] = useState(loadState)
   const [tab, setTab] = useState('album')
   const [openId, setOpenId] = useState(null)
+  const [photos, setPhotos] = useState({})
+
+  useEffect(() => { loadPhotos().then(setPhotos).catch(() => {}) }, [])
+
+  const setPhoto = async (id, dataUrl) => {
+    if (dataUrl) await savePhoto(id, dataUrl); else await deletePhoto(id)
+    setPhotos((p) => { const n = { ...p }; if (dataUrl) n[id] = dataUrl; else delete n[id]; return n })
+  }
+  const replaceAllPhotos = async (next) => {
+    await clearPhotos()
+    for (const [id, url] of Object.entries(next)) await savePhoto(id, url)
+    setPhotos(next)
+  }
 
   useEffect(() => {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(data)) } catch (e) { /* Speicher voll oder gesperrt */ }
@@ -57,10 +71,10 @@ export default function App() {
     return { ...d, notes }
   })
   const addCustom = (coin) => setData((d) => ({ ...d, custom: [...d.custom, coin] }))
-  const removeCustom = (id) => setData((d) => {
+  const removeCustom = (id) => { setPhoto(id, null); setData((d) => {
     const strip = (obj) => { const o = { ...obj }; delete o[id]; return o }
     return { owned: strip(d.owned), values: strip(d.values), notes: strip(d.notes), custom: d.custom.filter((c) => c.id !== id) }
-  })
+  }) }
 
   let unique = 0
   let total = 0
@@ -83,12 +97,12 @@ export default function App() {
       </header>
 
       <main>
-        {tab === 'album' && <Album coins={coins} countOf={countOf} onOpen={setOpenId} />}
+        {tab === 'album' && <Album coins={coins} countOf={countOf} photos={photos} onOpen={setOpenId} />}
         {tab === 'stats' && (
           <Stats coins={coins} countOf={countOf} valueOf={valueOf}
             unique={unique} total={total} value={value} onOpen={setOpenId} />
         )}
-        {tab === 'more' && <More data={data} setData={setData} onAdd={addCustom} goAlbum={() => setTab('album')} />}
+        {tab === 'more' && <More data={data} setData={setData} photos={photos} replaceAllPhotos={replaceAllPhotos} onAdd={addCustom} goAlbum={() => setTab('album')} />}
       </main>
 
       <nav className="tabs" aria-label="Bereiche">
@@ -104,6 +118,8 @@ export default function App() {
           count={countOf(open)}
           value={valueOf(open)}
           note={data.notes[open.id] || ''}
+          photo={photos[open.id]}
+          onPhoto={(url) => { setPhoto(open.id, url); if (url && !countOf(open)) setCount(open.id, 1) }}
           onCount={(n) => setCount(open.id, n)}
           onValue={(v) => setValue(open.id, v)}
           onNote={(t) => setNote(open.id, t)}
@@ -115,7 +131,14 @@ export default function App() {
   )
 }
 
-function CoinFace({ coin, count, big }) {
+function CoinFace({ coin, count, big, photo }) {
+  if (photo && count > 0) {
+    return (
+      <span className={`coin has-photo${big ? ' coin--big' : ''}`} aria-hidden="true">
+        <img src={photo} alt="" />
+      </span>
+    )
+  }
   return (
     <span className={`coin ${count > 0 ? 'is-owned' : 'is-missing'}${big ? ' coin--big' : ''}`} aria-hidden="true">
       <span className="coin-core">
@@ -126,7 +149,7 @@ function CoinFace({ coin, count, big }) {
   )
 }
 
-function Album({ coins, countOf, onOpen }) {
+function Album({ coins, countOf, photos, onOpen }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('alle')
   const [country, setCountry] = useState('')
@@ -198,7 +221,7 @@ function Album({ coins, countOf, onOpen }) {
                   <button key={c.id} className="slot" onClick={() => onOpen(c.id)}
                     aria-label={`${c.year}, ${c.motif}: ${n ? `${n} Stück vorhanden` : 'fehlt'}`}>
                     <span className="slot-coin">
-                      <CoinFace coin={c} count={n} />
+                      <CoinFace coin={c} count={n} photo={photos[c.id]} />
                       {n > 1 && <span className="badge">×{n}</span>}
                     </span>
                     <span className="slot-label">{c.motif}</span>
@@ -213,17 +236,43 @@ function Album({ coins, countOf, onOpen }) {
   )
 }
 
-function CoinSheet({ coin, count, value, note, onCount, onValue, onNote, onRemove, onClose }) {
+function CoinSheet({ coin, count, value, note, photo, onPhoto, onCount, onValue, onNote, onRemove, onClose }) {
+  const fileRef = useRef(null)
+  const [pending, setPending] = useState(null) // { file, preview }
+  const [zoom, setZoom] = useState(1.3)
+  const [photoErr, setPhotoErr] = useState('')
+
+  const pickFile = (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setPhotoErr('')
+    setZoom(1.3)
+    setPending({ file, preview: URL.createObjectURL(file) })
+  }
+  const cancelPending = () => { if (pending) URL.revokeObjectURL(pending.preview); setPending(null) }
+  const acceptPending = async () => {
+    try {
+      const url = await processImage(pending.file, zoom)
+      onPhoto(url)
+    } catch {
+      setPhotoErr('Das Foto konnte nicht gelesen werden. Versuche es mit einem anderen Bild.')
+    }
+    cancelPending()
+  }
+
   const [valStr, setValStr] = useState(String(value).replace('.', ','))
   const closeRef = useRef(null)
 
   useEffect(() => { setValStr(String(value).replace('.', ',')) }, [coin.id, value])
+  const closeFn = useRef(onClose)
+  closeFn.current = onClose
   useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose() }
+    const onKey = (e) => { if (e.key === 'Escape') closeFn.current() }
     document.addEventListener('keydown', onKey)
-    closeRef.current?.focus()
+    closeRef.current?.focus({ preventScroll: true })
     return () => document.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   const commitValue = () => {
     const v = parseFloat(valStr.replace(',', '.'))
@@ -235,13 +284,40 @@ function CoinSheet({ coin, count, value, note, onCount, onValue, onNote, onRemov
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="sheet-title" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-head">
-          <span key={count > 0 ? 'on' : 'off'} className="sheet-coin"><CoinFace coin={coin} count={count} big /></span>
+          <span key={count > 0 ? 'on' : 'off'} className="sheet-coin"><CoinFace coin={coin} count={count} photo={photo} big /></span>
           <div>
             <p className="sheet-meta">{flag(coin.country)} {COUNTRIES[coin.country]}, {coin.year}</p>
             <h2 id="sheet-title">{coin.motif}</h2>
             <p className="sheet-type">{TYPE_LABEL[coin.type]}{coin.joint ? ', Gemeinschaftsausgabe' : ''}{coin.custom ? ', selbst hinzugefügt' : ''}</p>
           </div>
         </div>
+
+        {pending && (
+          <div className="crop">
+            <div className="crop-frame">
+              <img src={pending.preview} alt="Vorschau des Münzfotos" style={{ transform: `scale(${zoom})` }} />
+            </div>
+            <label className="field">
+              <span>Zoomen, bis die Münze den Kreis füllt</span>
+              <input type="range" min="1" max="4" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+            </label>
+            <div className="sheet-actions">
+              <button className="ghost" onClick={cancelPending}>Abbrechen</button>
+              <button className="primary" onClick={acceptPending}>Foto übernehmen</button>
+            </div>
+          </div>
+        )}
+
+        {!pending && (
+          <div className="photo-actions">
+            <button className="ghost" onClick={() => fileRef.current?.click()}>
+              {photo ? 'Foto ändern' : 'Münze fotografieren'}
+            </button>
+            {photo && <button className="link" onClick={() => onPhoto(null)}>Foto entfernen</button>}
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" hidden onChange={pickFile} />
+          </div>
+        )}
+        {photoErr && <p className="msg" role="alert">{photoErr}</p>}
 
         {count === 0 ? (
           <button className="primary" onClick={() => onCount(1)}>Habe ich</button>
@@ -349,7 +425,7 @@ function Stats({ coins, countOf, valueOf, unique, total, value, onOpen }) {
   )
 }
 
-function More({ data, setData, onAdd, goAlbum }) {
+function More({ data, setData, photos, replaceAllPhotos, onAdd, goAlbum }) {
   const [form, setForm] = useState({ country: 'DE', type: 'gedenk', year: String(new Date().getFullYear()), motif: '', value: '2' })
   const [msg, setMsg] = useState('')
   const fileRef = useRef(null)
@@ -369,7 +445,7 @@ function More({ data, setData, onAdd, goAlbum }) {
   }
 
   const exportData = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify({ ...data, photos })], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -387,7 +463,9 @@ function More({ data, setData, onAdd, goAlbum }) {
         const parsed = JSON.parse(reader.result)
         if (typeof parsed.owned !== 'object') throw new Error()
         if (confirm('Die aktuelle Sammlung wird durch die Sicherung ersetzt. Fortfahren?')) {
-          setData({ ...EMPTY, ...parsed })
+          const { photos: importedPhotos = {}, ...rest } = parsed
+          setData({ ...EMPTY, ...rest })
+          replaceAllPhotos(importedPhotos)
           setMsg('Sicherung wurde geladen.')
         }
       } catch {
@@ -436,12 +514,12 @@ function More({ data, setData, onAdd, goAlbum }) {
       )}
 
       <h2>Sicherung</h2>
-      <p className="hint">Die Sammlung wird nur auf diesem Gerät im Browser gespeichert. Lade regelmäßig eine Sicherung herunter, damit nichts verloren geht, und nutze sie, um die Sammlung auf ein anderes Gerät zu übertragen.</p>
+      <p className="hint">Die Sammlung wird nur auf diesem Gerät im Browser gespeichert. Lade regelmäßig eine Sicherung herunter, damit nichts verloren geht, und nutze sie, um die Sammlung auf ein anderes Gerät zu übertragen. Deine Münzfotos sind in der Sicherung enthalten.</p>
       <div className="stack">
         <button className="ghost" onClick={exportData}>Sicherung herunterladen</button>
         <button className="ghost" onClick={() => fileRef.current?.click()}>Sicherung laden</button>
         <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={importData} />
-        <button className="danger" onClick={() => { if (confirm('Wirklich die ganze Sammlung löschen? Das kann nicht rückgängig gemacht werden.')) { setData(EMPTY); setMsg('Sammlung wurde gelöscht.') } }}>Sammlung löschen</button>
+        <button className="danger" onClick={() => { if (confirm('Wirklich die ganze Sammlung löschen? Das kann nicht rückgängig gemacht werden.')) { setData(EMPTY); replaceAllPhotos({}); setMsg('Sammlung wurde gelöscht.') } }}>Sammlung löschen</button>
       </div>
     </section>
   )
