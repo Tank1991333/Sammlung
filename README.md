@@ -1,6 +1,6 @@
 # 2-Euro-Album
 
-App zum Dokumentieren einer 2-Euro-Münzsammlung: Münzen abhaken, fehlende sehen, Werte schätzen, Statistik.
+App zum Dokumentieren einer 2-Euro-Münzsammlung: Münzen abhaken und fotografieren, fehlende sehen, Werte schätzen, Statistik.
 Alle Daten bleiben im Browser des Geräts. Über „Mehr“ kann eine Sicherung heruntergeladen werden.
 
 ## Online stellen (kostenlos)
