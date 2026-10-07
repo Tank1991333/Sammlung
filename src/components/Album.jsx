@@ -8,10 +8,9 @@ const FILTERS = [
   ['wunsch', 'Wunschliste'], ['selten', 'Selten'],
 ]
 
-export default function Album({ coins, data, countOf, valueOf, photos, onOpen, recognizeButton }) {
+export default function Album({ coins, data, countOf, valueOf, photos, onOpen, recognizeButton, country, setCountry }) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('alle')
-  const [country, setCountry] = useState('')
   const [view, setView] = useState('land')
   const showMints = data.settings.mints
 

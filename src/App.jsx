@@ -10,6 +10,7 @@ import { useTheme } from './lib/theme.js'
 import Album from './components/Album.jsx'
 import CoinSheet from './components/CoinSheet.jsx'
 import Stats from './components/Stats.jsx'
+import MapView from './components/MapView.jsx'
 import More from './components/More.jsx'
 import PrintView from './components/PrintView.jsx'
 import Recognize, { useRecognitionAvailable } from './components/Recognize.jsx'
@@ -20,6 +21,7 @@ export default function App() {
   const [photos, setPhotos] = useState({})
   const [tab, setTab] = useState('album')
   const [openId, setOpenId] = useState(null)
+  const [albumCountry, setAlbumCountry] = useState('')
   const [suggested, setSuggested] = useState(null) // Foto aus der Erkennung
   const [printing, setPrinting] = useState(false)
   const recognitionOk = useRecognitionAvailable()
@@ -127,10 +129,15 @@ export default function App() {
       <main>
         {tab === 'album' && (
           <Album coins={coins} data={data} countOf={countOf} valueOf={valueOf} photos={photos} onOpen={setOpenId}
+            country={albumCountry} setCountry={setAlbumCountry}
             recognizeButton={recognitionOk ? (
               <Recognize coins={coins} countOf={countOf} photos={photos}
                 onPick={(id, photo) => { setOpenId(id); setSuggested(photo) }} />
             ) : null} />
+        )}
+        {tab === 'karte' && (
+          <MapView coins={coins} countOf={countOf} theme={theme.effective}
+            onShowCountry={(code) => { setAlbumCountry(code); setTab('album'); window.scrollTo(0, 0) }} />
         )}
         {tab === 'stats' && <Stats coins={coins} data={data} countOf={countOf} valueOf={valueOf} onOpen={setOpenId} />}
         {tab === 'more' && (
@@ -142,7 +149,7 @@ export default function App() {
       </main>
 
       <nav className="tabs" aria-label="Bereiche">
-        {[['album', 'Album'], ['stats', 'Statistik'], ['more', 'Mehr']].map(([key, label]) => (
+        {[['album', 'Album'], ['karte', 'Karte'], ['stats', 'Statistik'], ['more', 'Mehr']].map(([key, label]) => (
           <button key={key} className={tab === key ? 'is-active' : ''} aria-current={tab === key ? 'page' : undefined}
             onClick={() => setTab(key)}>{label}</button>
         ))}

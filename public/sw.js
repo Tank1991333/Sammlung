@@ -1,5 +1,5 @@
 // Offline-Modus: speichert die App und den Katalog auf dem Gerät.
-const CACHE = 'zwei-euro-album-v2'
+const CACHE = 'zwei-euro-album-v3'
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon.svg', '/catalog.json']
 
 self.addEventListener('install', (event) => {
@@ -14,7 +14,8 @@ self.addEventListener('activate', (event) => {
   self.clients.claim()
 })
 
-const isFont = (url) => url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com'
+// Schriften und Kartendaten von externen Servern ebenfalls offline speichern
+const isFont = (url) => ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdn.jsdelivr.net'].includes(url.hostname)
 
 self.addEventListener('fetch', (event) => {
   const req = event.request
