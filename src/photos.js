@@ -39,14 +39,19 @@ export const deletePhoto = (id) => tx('readwrite', (s) => s.delete(id))
 export const clearPhotos = () => tx('readwrite', (s) => s.clear())
 
 // Foto quadratisch zuschneiden (Mitte) und verkleinern
-export function processImage(file, zoom = 1, size = 480) {
+// panX/panY: Verschiebung im Vorschaukreis als Anteil der Kreisgröße (wie in der Vorschau)
+export function processImage(file, zoom = 1, panX = 0, panY = 0, size = 480) {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file)
     const img = new Image()
     img.onload = () => {
-      const side = Math.min(img.width, img.height) / zoom
-      const sx = (img.width - side) / 2
-      const sy = (img.height - side) / 2
+      const square = Math.min(img.width, img.height)
+      const side = square / zoom
+      // Mitte des sichtbaren Ausschnitts, passend zu translate(...) scale(zoom) in der Vorschau
+      const cx = (img.width - square) / 2 + square / 2 - (panX * square) / zoom
+      const cy = (img.height - square) / 2 + square / 2 - (panY * square) / zoom
+      const sx = Math.max(0, Math.min(img.width - side, cx - side / 2))
+      const sy = Math.max(0, Math.min(img.height - side, cy - side / 2))
       const canvas = document.createElement('canvas')
       canvas.width = size
       canvas.height = size

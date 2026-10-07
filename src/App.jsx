@@ -287,7 +287,49 @@ function CoinSheet({ coin, count, value, note, photo, onPhoto, onCount, onValue,
   const fileRef = useRef(null)
   const [pending, setPending] = useState(null) // { file, preview }
   const [zoom, setZoom] = useState(1.3)
+  const [pan, setPan] = useState({ x: 0, y: 0 }) // Verschiebung als Anteil der Kreisgröße
   const [photoErr, setPhotoErr] = useState('')
+  const frameRef = useRef(null)
+  const pointers = useRef(new Map())
+  const pinch = useRef(null)
+
+  // Verschiebung so begrenzen, dass der Kreis immer mit Foto gefüllt bleibt
+  const clampPan = (p, z) => {
+    const max = (1 - 1 / z) / 2
+    return { x: Math.max(-max, Math.min(max, p.x)), y: Math.max(-max, Math.min(max, p.y)) }
+  }
+  const changeZoom = (z) => {
+    const nz = Math.max(1, Math.min(4, z))
+    setZoom(nz)
+    setPan((p) => clampPan(p, nz))
+  }
+
+  const onPointerDown = (e) => {
+    e.currentTarget.setPointerCapture(e.pointerId)
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()]
+      pinch.current = { dist: Math.hypot(a.x - b.x, a.y - b.y), zoom }
+    }
+  }
+  const onPointerMove = (e) => {
+    const prev = pointers.current.get(e.pointerId)
+    if (!prev) return
+    const now = { x: e.clientX, y: e.clientY }
+    pointers.current.set(e.pointerId, now)
+    if (pointers.current.size >= 2 && pinch.current) {
+      const [a, b] = [...pointers.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y)
+      if (pinch.current.dist > 0) changeZoom(pinch.current.zoom * (dist / pinch.current.dist))
+      return
+    }
+    const size = frameRef.current?.clientWidth || 1
+    setPan((p) => clampPan({ x: p.x + (now.x - prev.x) / size, y: p.y + (now.y - prev.y) / size }, zoom))
+  }
+  const onPointerUp = (e) => {
+    pointers.current.delete(e.pointerId)
+    if (pointers.current.size < 2) pinch.current = null
+  }
 
   const pickFile = (e) => {
     const file = e.target.files?.[0]
@@ -295,12 +337,13 @@ function CoinSheet({ coin, count, value, note, photo, onPhoto, onCount, onValue,
     if (!file) return
     setPhotoErr('')
     setZoom(1.3)
+    setPan({ x: 0, y: 0 })
     setPending({ file, preview: URL.createObjectURL(file) })
   }
   const cancelPending = () => { if (pending) URL.revokeObjectURL(pending.preview); setPending(null) }
   const acceptPending = async () => {
     try {
-      const url = await processImage(pending.file, zoom)
+      const url = await processImage(pending.file, zoom, pan.x, pan.y)
       onPhoto(url)
     } catch {
       setPhotoErr('Das Foto konnte nicht gelesen werden. Versuche es mit einem anderen Bild.')
@@ -341,12 +384,15 @@ function CoinSheet({ coin, count, value, note, photo, onPhoto, onCount, onValue,
 
         {pending && (
           <div className="crop">
-            <div className="crop-frame">
-              <img src={pending.preview} alt="Vorschau des Münzfotos" style={{ transform: `scale(${zoom})` }} />
+            <div className="crop-frame" ref={frameRef}
+              onPointerDown={onPointerDown} onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp} onPointerCancel={onPointerUp}>
+              <img src={pending.preview} alt="Vorschau des Münzfotos" draggable={false}
+                style={{ transform: `translate(${pan.x * 100}%, ${pan.y * 100}%) scale(${zoom})` }} />
             </div>
             <label className="field">
-              <span>Zoomen, bis die Münze den Kreis füllt</span>
-              <input type="range" min="1" max="4" step="0.05" value={zoom} onChange={(e) => setZoom(Number(e.target.value))} />
+              <span>Foto mit dem Finger verschieben, mit dem Regler oder zwei Fingern zoomen, bis die Münze den Kreis füllt</span>
+              <input type="range" min="1" max="4" step="0.05" value={zoom} onChange={(e) => changeZoom(Number(e.target.value))} />
             </label>
             <div className="sheet-actions">
               <button className="ghost" onClick={cancelPending}>Abbrechen</button>
