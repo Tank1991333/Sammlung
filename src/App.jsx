@@ -11,6 +11,7 @@ import Album from './components/Album.jsx'
 import CoinSheet from './components/CoinSheet.jsx'
 import Stats from './components/Stats.jsx'
 import MapView from './components/MapView.jsx'
+import Identify from './components/Identify.jsx'
 import More from './components/More.jsx'
 import PrintView from './components/PrintView.jsx'
 import Recognize, { useRecognitionAvailable } from './components/Recognize.jsx'
@@ -130,10 +131,15 @@ export default function App() {
         {tab === 'album' && (
           <Album coins={coins} data={data} countOf={countOf} valueOf={valueOf} photos={photos} onOpen={setOpenId}
             country={albumCountry} setCountry={setAlbumCountry}
-            recognizeButton={recognitionOk ? (
-              <Recognize coins={coins} countOf={countOf} photos={photos}
-                onPick={(id, photo) => { setOpenId(id); setSuggested(photo) }} />
-            ) : null} />
+            recognizeButton={(
+              <>
+                <Identify coins={coins} countOf={countOf} photos={photos} onPick={(id) => setOpenId(id)} />
+                {recognitionOk && (
+                  <Recognize coins={coins} countOf={countOf} photos={photos}
+                    onPick={(id, photo) => { setOpenId(id); setSuggested(photo) }} />
+                )}
+              </>
+            )} />
         )}
         {tab === 'karte' && (
           <MapView coins={coins} countOf={countOf} theme={theme.effective}
